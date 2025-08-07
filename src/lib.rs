@@ -8,7 +8,7 @@ mod x_axis;
 mod y_axis;
 
 pub use candle::Candle;
-pub use candlestick_chart::CandleStickChart;
+pub use candlestick_chart::{CandleStickChart, ChartFitMode};
 pub use candlestick_chart_state::CandleStickChartState;
 pub use x_axis::Interval;
 

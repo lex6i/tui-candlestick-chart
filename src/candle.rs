@@ -35,6 +35,22 @@ impl Candle {
     }
 
     pub(crate) fn render(&self, y_axis: &YAxis) -> (CandleType, Vec<&str>) {
+        self.render_internal(y_axis, 1)
+    }
+
+    pub(crate) fn render_stretched(&self, y_axis: &YAxis, width: u16) -> (CandleType, Vec<Vec<&str>>) {
+        let (candle_type, base_chars) = self.render_internal(y_axis, 1);
+        let mut stretched_result = Vec::new();
+        
+        for char in base_chars {
+            let row = self.stretch_char(char, width);
+            stretched_result.push(row);
+        }
+        
+        (candle_type, stretched_result)
+    }
+
+    fn render_internal(&self, y_axis: &YAxis, _width: u16) -> (CandleType, Vec<&str>) {
         let open = y_axis.calc_y(self.open);
         let close = y_axis.calc_y(self.close);
 
@@ -122,6 +138,74 @@ impl Candle {
         };
 
         (candle_type, result)
+    }
+
+    fn stretch_char(&self, char: &str, width: u16) -> Vec<&'static str> {
+        match char {
+            UNICODE_BODY | UNICODE_HALF_BODY_BOTTOM | UNICODE_HALF_BODY_TOP => {
+                if width == 1 {
+                    vec![UNICODE_BODY]
+                } else {
+                    self.stretch_body(width)
+                }
+            }
+            UNICODE_WICK | UNICODE_HALF_WICK_BOTTOM | UNICODE_HALF_WICK_TOP => {
+                if width == 1 {
+                    vec![UNICODE_WICK]
+                } else {
+                    self.stretch_wick(width)
+                }
+            }
+            _ => vec![UNICODE_VOID; width as usize]
+        }
+    }
+
+    fn stretch_body(&self, width: u16) -> Vec<&'static str> {
+        let mut result = Vec::new();
+        
+        if width == 2 {
+            result.push(UNICODE_RIGHT_HALF_BLOCK);
+            result.push(UNICODE_LEFT_HALF_BLOCK);
+        } else if width > 2 {
+            result.push(UNICODE_RIGHT_HALF_BLOCK);
+            for _ in 0..(width - 2) {
+                result.push(UNICODE_FULL_BLOCK);
+            }
+            result.push(UNICODE_LEFT_HALF_BLOCK);
+        } else {
+            result.push(UNICODE_BODY);
+        }
+        
+        result
+    }
+
+    fn stretch_wick(&self, width: u16) -> Vec<&'static str> {
+        let mut result = Vec::new();
+        
+        if width % 2 == 0 {
+            // Even width: use eighth blocks
+            let center_offset = (width - 2) / 2;
+            for _ in 0..center_offset {
+                result.push(UNICODE_VOID);
+            }
+            result.push(UNICODE_RIGHT_EIGHTH_BLOCK);
+            result.push(UNICODE_LEFT_EIGHTH_BLOCK);
+            for _ in 0..center_offset {
+                result.push(UNICODE_VOID);
+            }
+        } else {
+            // Odd width: use single wick character
+            let center_offset = (width - 1) / 2;
+            for _ in 0..center_offset {
+                result.push(UNICODE_VOID);
+            }
+            result.push(UNICODE_WICK);
+            for _ in 0..center_offset {
+                result.push(UNICODE_VOID);
+            }
+        }
+        
+        result
     }
 }
 

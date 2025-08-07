@@ -16,6 +16,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChartFitMode {
+    /// Fixed scale - chart maintains consistent scale regardless of window size
+    Fixed,
+    /// Fit to available space - chart automatically stretches or compresses to fit
+    Fit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CandleStickChart {
     /// Candle interval
     interval: Interval,
@@ -37,6 +45,8 @@ pub struct CandleStickChart {
     show_y_axis: bool,
     /// show/hide x axis
     show_x_axis: bool,
+    /// Chart fitting mode
+    fit_mode: ChartFitMode,
 }
 
 impl CandleStickChart {
@@ -53,6 +63,7 @@ impl CandleStickChart {
             display_timezone: Utc.fix(),
             show_y_axis: true,
             show_x_axis: true,
+            fit_mode: ChartFitMode::Fixed,  // Default to fixed mode
         }
     }
 
@@ -103,6 +114,11 @@ impl CandleStickChart {
 
     pub fn show_x_axis(mut self, show: bool) -> Self {
         self.show_x_axis = show;
+        self
+    }
+
+    pub fn fit_mode(mut self, mode: ChartFitMode) -> Self {
+        self.fit_mode = mode;
         self
     }
 }
@@ -255,38 +271,129 @@ impl StatefulWidget for CandleStickChart {
             }
         }
 
-        let mut offset = 0;
-        let mut prev_timestamp =
-            rendered_candles.first().unwrap().timestamp - self.interval as i64 * 1000;
-        for (x, candle) in rendered_candles.iter().enumerate() {
-            if candle.timestamp < first_timestamp || candle.timestamp > last_timestamp {
-                prev_timestamp = candle.timestamp;
-                continue;
+        // Calculate candle width and spacing distribution, or merge candles for squashing
+        let (processed_candles, candle_width, extra_spaces, _) = match self.fit_mode {
+            ChartFitMode::Fixed => {
+                let data_candles: Vec<Candle> = rendered_candles.iter()
+                    .filter(|c| c.timestamp >= first_timestamp && c.timestamp <= last_timestamp)
+                    .map(|&c| c.clone())
+                    .collect();
+                (data_candles, 1u16, 0u16, 0usize)
+            },
+            ChartFitMode::Fit => {
+                let data_candles: Vec<Candle> = rendered_candles.iter()
+                    .filter(|c| c.timestamp >= first_timestamp && c.timestamp <= last_timestamp)
+                    .map(|&c| c.clone())
+                    .collect();
+                    
+                if data_candles.is_empty() {
+                    (data_candles, 1u16, 0u16, 0usize)
+                } else if data_candles.len() > chart_width as usize {
+                    // Squashing: merge candles
+                    let merge_ratio = (data_candles.len() + chart_width as usize - 1) / chart_width as usize; // Ceiling division
+                    let mut merged_candles = Vec::new();
+                    
+                    for chunk in data_candles.chunks(merge_ratio) {
+                        if !chunk.is_empty() {
+                            // Create merged candle: first open, last close, min low, max high
+                            let merged = Candle::new(
+                                chunk[0].timestamp, // Use first timestamp
+                                chunk[0].open.into(),
+                                chunk.iter().map(|c| c.high).max().unwrap().into(),
+                                chunk.iter().map(|c| c.low).min().unwrap().into(),
+                                chunk[chunk.len() - 1].close.into()
+                            ).unwrap();
+                            merged_candles.push(merged);
+                        }
+                    }
+                    
+                    (merged_candles, 1u16, 0u16, 0usize)
+                } else {
+                    // Stretching: normal logic
+                    let base_width = std::cmp::max(1, chart_width / data_candles.len() as u16);
+                    let used_width = base_width * data_candles.len() as u16;
+                    let extra_spaces = chart_width.saturating_sub(used_width);
+                    
+                    (data_candles, base_width, extra_spaces, 0)
+                }
             }
-            let gap = (candle.timestamp - prev_timestamp) / (self.interval as i64 * 1000);
-            if gap > 1 {
-                offset += gap as u16 - 1;
+        };
+        
+        let mut candle_index = 0;
+        let mut current_x_offset = 0u16;
+        
+        // Pre-calculate where extra spaces should go for even distribution
+        let mut space_positions = vec![false; processed_candles.len()];
+        if extra_spaces > 0 && processed_candles.len() > 1 {
+            let gaps = processed_candles.len() - 1;
+            for i in 0..extra_spaces as usize {
+                if i < gaps {
+                    // Distribute spaces evenly across gaps using floating point for precision
+                    let position = ((i as f64 + 0.5) * gaps as f64 / extra_spaces as f64) as usize;
+                    if position < space_positions.len() - 1 {
+                        space_positions[position] = true;
+                    }
+                }
             }
-            let (candle_type, rendered) = candle.render(&y_axis);
-
-            let (body_color, wick_color) = match candle_type {
+        }
+        
+        for candle in processed_candles.iter() {
+            let (body_color, wick_color) = match if candle.open <= candle.close {
+                CandleType::Bullish
+            } else {
+                CandleType::Bearish
+            } {
                 CandleType::Bearish => (self.bearish_color, self.bearish_wick_color),
                 CandleType::Bullish => (self.bullish_color, self.bullish_wick_color),
             };
 
-            for (y, char) in rendered.iter().enumerate() {
-                let cell_x = x as u16 + y_axis_width + offset + area.x;
-                let cell_y = y as u16 + area.y;
-                if let Some(cell) = buf.cell_mut((cell_x, cell_y)) {
-                    // Determine if this character is a wick or body
-                    let is_wick = matches!(*char, UNICODE_WICK | UNICODE_HALF_WICK_BOTTOM | UNICODE_HALF_WICK_TOP);
-                    let color = if is_wick { wick_color } else { body_color };
-                    
-                    cell.set_symbol(char)
-                        .set_style(Style::default().fg(color));
+            if candle_width == 1 && extra_spaces == 0 {
+                // Use normal rendering
+                let (_, rendered) = candle.render(&y_axis);
+                for (y, char) in rendered.iter().enumerate() {
+                    let cell_x = candle_index as u16 + y_axis_width + area.x;
+                    let cell_y = y as u16 + area.y;
+                    if cell_x < area.x + area.width && let Some(cell) = buf.cell_mut((cell_x, cell_y)) {
+                        // Determine if this character is a wick or body
+                        let is_wick = matches!(*char, UNICODE_WICK | UNICODE_HALF_WICK_BOTTOM | UNICODE_HALF_WICK_TOP);
+                        let color = if is_wick { wick_color } else { body_color };
+                        
+                        cell.set_symbol(char)
+                            .set_style(Style::default().fg(color));
+                    }
+                }
+            } else {
+                // Use stretched rendering with pre-calculated spacing
+                let (_, stretched_rendered) = if candle_width > 1 {
+                    candle.render_stretched(&y_axis, candle_width)
+                } else {
+                    candle.render_stretched(&y_axis, 1)
+                };
+                
+                for (y, row) in stretched_rendered.iter().enumerate() {
+                    for (dx, char) in row.iter().enumerate() {
+                        let cell_x = current_x_offset + dx as u16 + y_axis_width + area.x;
+                        let cell_y = y as u16 + area.y;
+                        if cell_x < area.x + area.width && let Some(cell) = buf.cell_mut((cell_x, cell_y)) {
+                            // Determine if this character is a wick or body
+                            let is_wick = matches!(*char, UNICODE_WICK | UNICODE_RIGHT_EIGHTH_BLOCK | UNICODE_LEFT_EIGHTH_BLOCK | UNICODE_HALF_WICK_BOTTOM | UNICODE_HALF_WICK_TOP);
+                            let color = if is_wick { wick_color } else { body_color };
+                            
+                            cell.set_symbol(char)
+                                .set_style(Style::default().fg(color));
+                        }
+                    }
+                }
+                
+                // Move to next position
+                current_x_offset += candle_width;
+                
+                // Add extra space if this position is marked for it
+                if candle_index < space_positions.len() && space_positions[candle_index] {
+                    current_x_offset += 1;
                 }
             }
-            prev_timestamp = candle.timestamp;
+            candle_index += 1;
         }
     }
 }

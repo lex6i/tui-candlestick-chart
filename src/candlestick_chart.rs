@@ -188,7 +188,7 @@ impl StatefulWidget for CandleStickChart {
         let y_axis = YAxis::new(Numeric::default(), area.height - 3, y_min, y_max);
         let rendered_y_axis = y_axis.render();
         for (y, string) in rendered_y_axis.iter().enumerate() {
-            buf.set_string(0, y as u16, string, Style::default());
+            buf.set_string(area.x, y as u16 + area.y, string, Style::default());
         }
 
         let timestamp_min = rendered_candles.first().unwrap().timestamp;
@@ -202,11 +202,11 @@ impl StatefulWidget for CandleStickChart {
             state.cursor_timestamp.is_none(),
         );
         let rendered_x_axis = x_axis.render(self.display_timezone);
-        buf.set_string(y_axis_width - 2, area.height - 3, "└──", Style::default());
+        buf.set_string(area.x + y_axis_width - 2, area.y + area.height - 3, "└──", Style::default());
         for (y, string) in rendered_x_axis.iter().enumerate() {
             buf.set_string(
-                y_axis_width,
-                area.height - 3 + y as u16,
+                area.x + y_axis_width,
+                area.y + area.height - 3 + y as u16,
                 string,
                 Style::default(),
             );
@@ -232,7 +232,8 @@ impl StatefulWidget for CandleStickChart {
             };
 
             for (y, char) in rendered.iter().enumerate() {
-                buf.get_mut(x as u16 + y_axis_width + offset, y as u16)
+                buf.cell_mut((x as u16 + y_axis_width + offset + area.x, y as u16 + area.y))
+                    .unwrap()
                     .set_symbol(char)
                     .set_style(Style::default().fg(color));
             }
@@ -266,7 +267,7 @@ mod tests {
     fn empty_candle() {
         let widget = CandleStickChart::new(Interval::OneMinute).candles(vec![]);
         let buffer = render(widget, 14, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "xxxxxxxxxxxxxx",
@@ -286,7 +287,7 @@ mod tests {
         let widget = CandleStickChart::new(Interval::OneMinute)
             .candles(vec![Candle::new(0, 0.9, 3.0, 0.0, 2.1).unwrap()]);
         let buffer = render(widget, 14, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "     3.000 ├ │",
@@ -306,7 +307,7 @@ mod tests {
         let widget = CandleStickChart::new(Interval::OneMinute)
             .candles(vec![Candle::new(0, 0.9, 3.0, 0.0, 2.1).unwrap()]);
         let buffer = render(widget, 30, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "     3.000 ├ xxxxxxxxxxxxxxxx│",
@@ -329,7 +330,7 @@ mod tests {
             Candle::new(120000, 3.9, 4.1, 2.0, 2.3).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "     4.200 ├ xxx ╽┃",
@@ -354,7 +355,7 @@ mod tests {
             Candle::new(240000, 2.0, 5.2, 0.9, 3.9).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "     5.200 ├ x ╷  │",
@@ -376,7 +377,7 @@ mod tests {
             Candle::new(240000, 2.0, 5.2, 0.9, 3.9).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "     5.200 ├ x xxx│",
@@ -399,7 +400,7 @@ mod tests {
             Candle::new(2000, 500.0, 500.0, 500.0, 500.0).unwrap(),
         ]);
         let buffer = render(widget, 16, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "  1000.000 ├ │  ",
@@ -422,7 +423,7 @@ mod tests {
             Candle::new(2000, 580.0, 580.0, 320.0, 320.0).unwrap(),
         ]);
         let buffer = render(widget, 16, 8);
-        assert_buffer_eq!(
+        assert_eq!(&
             buffer,
             Buffer::with_lines(vec![
                 "  1000.000 ├ │  ",

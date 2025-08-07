@@ -267,7 +267,7 @@ mod tests {
     fn empty_candle() {
         let widget = CandleStickChart::new(Interval::OneMinute).candles(vec![]);
         let buffer = render(widget, 14, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "xxxxxxxxxxxxxx",
@@ -287,7 +287,7 @@ mod tests {
         let widget = CandleStickChart::new(Interval::OneMinute)
             .candles(vec![Candle::new(0, 0.9, 3.0, 0.0, 2.1).unwrap()]);
         let buffer = render(widget, 14, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "     3.000 ├ │",
@@ -307,7 +307,7 @@ mod tests {
         let widget = CandleStickChart::new(Interval::OneMinute)
             .candles(vec![Candle::new(0, 0.9, 3.0, 0.0, 2.1).unwrap()]);
         let buffer = render(widget, 30, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "     3.000 ├ xxxxxxxxxxxxxxxx│",
@@ -330,7 +330,7 @@ mod tests {
             Candle::new(120000, 3.9, 4.1, 2.0, 2.3).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "     4.200 ├ xxx ╽┃",
@@ -355,7 +355,7 @@ mod tests {
             Candle::new(240000, 2.0, 5.2, 0.9, 3.9).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "     5.200 ├ x ╷  │",
@@ -377,7 +377,7 @@ mod tests {
             Candle::new(240000, 2.0, 5.2, 0.9, 3.9).unwrap(),
         ]);
         let buffer = render(widget, 19, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "     5.200 ├ x xxx│",
@@ -400,7 +400,7 @@ mod tests {
             Candle::new(2000, 500.0, 500.0, 500.0, 500.0).unwrap(),
         ]);
         let buffer = render(widget, 16, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "  1000.000 ├ │  ",
@@ -423,7 +423,7 @@ mod tests {
             Candle::new(2000, 580.0, 580.0, 320.0, 320.0).unwrap(),
         ]);
         let buffer = render(widget, 16, 8);
-        assert_eq!(&
+        assert_eq!(
             buffer,
             Buffer::with_lines(vec![
                 "  1000.000 ├ │  ",

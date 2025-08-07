@@ -82,8 +82,8 @@ impl Styled for CandleStickChart {
         self.style
     }
 
-    fn set_style(self, style: Style) -> Self::Item {
-        self.style(style)
+    fn set_style<S: Into<Style>>(self, style: S) -> Self::Item {
+        self.style(style.into())
     }
 }
 
@@ -255,9 +255,8 @@ mod tests {
 
     fn render(widget: CandleStickChart, width: u16, height: u16) -> Buffer {
         let area = Rect::new(0, 0, width, height);
-        let mut cell = Cell::default();
-        cell.set_symbol("x");
-        let mut buffer = Buffer::filled(area, &cell);
+        let cell = Cell::new("x");
+        let mut buffer = Buffer::filled(area, cell);
         widget.render(area, &mut buffer, &mut CandleStickChartState::default());
         buffer.set_style(area, Style::default().reset());
         buffer

@@ -29,6 +29,10 @@ pub struct CandleStickChart {
     bullish_color: Color,
     /// display timezone
     display_timezone: FixedOffset,
+    /// show/hide y axis
+    show_y_axis: bool,
+    /// show/hide x axis
+    show_x_axis: bool,
 }
 
 impl CandleStickChart {
@@ -41,6 +45,8 @@ impl CandleStickChart {
             bearish_color: Color::Rgb(234, 74, 90),
             bullish_color: Color::Rgb(52, 208, 88),
             display_timezone: Utc.fix(),
+            show_y_axis: true,
+            show_x_axis: true,
         }
     }
 
@@ -71,6 +77,16 @@ impl CandleStickChart {
 
     pub fn display_timezone(mut self, offset: FixedOffset) -> Self {
         self.display_timezone = offset;
+        self
+    }
+
+    pub fn show_y_axis(mut self, show: bool) -> Self {
+        self.show_y_axis = show;
+        self
+    }
+
+    pub fn show_x_axis(mut self, show: bool) -> Self {
+        self.show_x_axis = show;
         self
     }
 }
@@ -116,9 +132,14 @@ impl StatefulWidget for CandleStickChart {
         let global_min = self.candles.iter().map(|c| c.low).min().unwrap();
         let global_max = self.candles.iter().map(|c| c.high).max().unwrap();
 
-        let y_axis_width: u16 =
-            YAxis::estimated_width(self.numeric.clone(), global_min, global_max);
-        if area.width <= y_axis_width || area.height <= 3 {
+        let y_axis_width: u16 = if self.show_y_axis {
+            YAxis::estimated_width(self.numeric.clone(), global_min, global_max)
+        } else {
+            0
+        };
+        let x_axis_height: u16 = if self.show_x_axis { 3 } else { 0 };
+        
+        if area.width <= y_axis_width || area.height <= x_axis_height {
             return;
         }
 
@@ -185,31 +206,37 @@ impl StatefulWidget for CandleStickChart {
             .max()
             .unwrap();
 
-        let y_axis = YAxis::new(Numeric::default(), area.height - 3, y_min, y_max);
-        let rendered_y_axis = y_axis.render();
-        for (y, string) in rendered_y_axis.iter().enumerate() {
-            buf.set_string(area.x, y as u16 + area.y, string, Style::default());
+        let y_axis = YAxis::new(Numeric::default(), area.height - x_axis_height, y_min, y_max);
+        if self.show_y_axis {
+            let rendered_y_axis = y_axis.render();
+            for (y, string) in rendered_y_axis.iter().enumerate() {
+                buf.set_string(area.x, y as u16 + area.y, string, Style::default());
+            }
         }
 
         let timestamp_min = rendered_candles.first().unwrap().timestamp;
         let timestamp_max = rendered_candles.last().unwrap().timestamp;
 
-        let x_axis = XAxis::new(
-            chart_width,
-            timestamp_min,
-            timestamp_max,
-            self.interval,
-            state.cursor_timestamp.is_none(),
-        );
-        let rendered_x_axis = x_axis.render(self.display_timezone);
-        buf.set_string(area.x + y_axis_width - 2, area.y + area.height - 3, "└──", Style::default());
-        for (y, string) in rendered_x_axis.iter().enumerate() {
-            buf.set_string(
-                area.x + y_axis_width,
-                area.y + area.height - 3 + y as u16,
-                string,
-                Style::default(),
+        if self.show_x_axis {
+            let x_axis = XAxis::new(
+                chart_width,
+                timestamp_min,
+                timestamp_max,
+                self.interval,
+                state.cursor_timestamp.is_none(),
             );
+            let rendered_x_axis = x_axis.render(self.display_timezone);
+            if self.show_y_axis {
+                buf.set_string(area.x + y_axis_width - 2, area.y + area.height - 3, "└──", Style::default());
+            }
+            for (y, string) in rendered_x_axis.iter().enumerate() {
+                buf.set_string(
+                    area.x + y_axis_width,
+                    area.y + area.height - 3 + y as u16,
+                    string,
+                    Style::default(),
+                );
+            }
         }
 
         let mut offset = 0;

@@ -9,6 +9,7 @@ use ratatui::{
 use crate::{
     candle::{Candle, CandleType},
     candlestick_chart_state::CandleStikcChartInfo,
+    symbols::*,
     x_axis::{Interval, XAxis},
     y_axis::{Numeric, YAxis},
     CandleStickChartState,
@@ -27,6 +28,9 @@ pub struct CandleStickChart {
     /// Candle style,
     bearish_color: Color,
     bullish_color: Color,
+    /// Wick colors
+    bearish_wick_color: Color,
+    bullish_wick_color: Color,
     /// display timezone
     display_timezone: FixedOffset,
     /// show/hide y axis
@@ -44,6 +48,8 @@ impl CandleStickChart {
             style: Style::default(),
             bearish_color: Color::Rgb(234, 74, 90),
             bullish_color: Color::Rgb(52, 208, 88),
+            bearish_wick_color: Color::Rgb(234, 74, 90),  // Same as body by default
+            bullish_wick_color: Color::Rgb(52, 208, 88),  // Same as body by default
             display_timezone: Utc.fix(),
             show_y_axis: true,
             show_x_axis: true,
@@ -72,6 +78,16 @@ impl CandleStickChart {
 
     pub fn bullish_color(mut self, color: Color) -> Self {
         self.bullish_color = color;
+        self
+    }
+
+    pub fn bearish_wick_color(mut self, color: Color) -> Self {
+        self.bearish_wick_color = color;
+        self
+    }
+
+    pub fn bullish_wick_color(mut self, color: Color) -> Self {
+        self.bullish_wick_color = color;
         self
     }
 
@@ -253,15 +269,19 @@ impl StatefulWidget for CandleStickChart {
             }
             let (candle_type, rendered) = candle.render(&y_axis);
 
-            let color = match candle_type {
-                CandleType::Bearish => self.bearish_color,
-                CandleType::Bullish => self.bullish_color,
+            let (body_color, wick_color) = match candle_type {
+                CandleType::Bearish => (self.bearish_color, self.bearish_wick_color),
+                CandleType::Bullish => (self.bullish_color, self.bullish_wick_color),
             };
 
             for (y, char) in rendered.iter().enumerate() {
                 let cell_x = x as u16 + y_axis_width + offset + area.x;
                 let cell_y = y as u16 + area.y;
                 if let Some(cell) = buf.cell_mut((cell_x, cell_y)) {
+                    // Determine if this character is a wick or body
+                    let is_wick = matches!(*char, UNICODE_WICK | UNICODE_HALF_WICK_BOTTOM | UNICODE_HALF_WICK_TOP);
+                    let color = if is_wick { wick_color } else { body_color };
+                    
                     cell.set_symbol(char)
                         .set_style(Style::default().fg(color));
                 }

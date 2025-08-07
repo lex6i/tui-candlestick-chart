@@ -62,7 +62,7 @@ impl Candle {
                             UNICODE_BODY
                         } else {
                             is_body = true;
-                            UNICODE_UP
+                            UNICODE_BODY
                         }
                     } else {
                         UNICODE_WICK
@@ -87,7 +87,7 @@ impl Candle {
                     } else if min_low_diff < 0.75 {
                         if is_body {
                             is_body = false;
-                            UNICODE_DOWN
+                            UNICODE_WICK
                         } else {
                             UNICODE_WICK
                         }
@@ -155,14 +155,8 @@ fn test_continuous_graph(mut chars: Vec<&str>) -> bool {
             (UNICODE_VOID, UNICODE_VOID) => {}
             (UNICODE_VOID, _) => {}
             (_, UNICODE_VOID) => {}
-            (UNICODE_BODY, UNICODE_UP | UNICODE_HALF_BODY_BOTTOM | UNICODE_HALF_WICK_BOTTOM) => {
-                return false
-            }
-            (UNICODE_DOWN | UNICODE_HALF_BODY_TOP | UNICODE_HALF_WICK_TOP, UNICODE_BODY) => {
-                return false
-            }
-            (UNICODE_WICK, UNICODE_HALF_BODY_BOTTOM | UNICODE_HALF_WICK_BOTTOM) => return false,
-            (UNICODE_HALF_BODY_TOP | UNICODE_HALF_WICK_TOP, UNICODE_WICK) => return false,
+            (UNICODE_WICK, UNICODE_WICK) => {}
+            (UNICODE_BODY, UNICODE_BODY) => {}
             _ => {}
         }
     }

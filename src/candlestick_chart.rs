@@ -401,7 +401,6 @@ impl StatefulWidget for CandleStickChart {
 #[cfg(test)]
 mod tests {
     use ratatui::{
-        assert_buffer_eq,
         buffer::{Buffer, Cell},
         layout::Rect,
         style::{Style, Stylize},

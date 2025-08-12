@@ -584,5 +584,5 @@ fn run_app<B: Backend>(
 
 fn ui(f: &mut Frame, app: &mut App) {
     let chart = CandleStickChart::new(Interval::OneMinute).candles(app.candles.clone());
-    f.render_stateful_widget(chart, f.size(), &mut app.state);
+    f.render_stateful_widget(chart, f.area(), &mut app.state);
 }

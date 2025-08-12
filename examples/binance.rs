@@ -203,5 +203,5 @@ fn ui(f: &mut Frame, app: &mut App) {
                 .offset_from_utc_date(&Utc::now().naive_utc().date())
                 .fix(),
         );
-    f.render_stateful_widget(chart, f.size(), &mut app.state);
+    f.render_stateful_widget(chart, f.area(), &mut app.state);
 }

@@ -1,8 +1,6 @@
 pub const UNICODE_VOID: &str = " ";
 pub const UNICODE_BODY: &str = "┃";
 pub const UNICODE_WICK: &str = "│";
-pub const UNICODE_UP: &str = "╽";
-pub const UNICODE_DOWN: &str = "╿";
 pub const UNICODE_HALF_BODY_BOTTOM: &str = "╻";
 pub const UNICODE_HALF_WICK_BOTTOM: &str = "╷";
 pub const UNICODE_HALF_BODY_TOP: &str = "╹";

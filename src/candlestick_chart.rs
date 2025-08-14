@@ -47,6 +47,8 @@ pub struct CandleStickChart {
     show_x_axis: bool,
     /// Chart fitting mode
     fit_mode: ChartFitMode,
+    /// Maximum width for a single candle when stretching
+    max_width: u16,
 }
 
 impl CandleStickChart {
@@ -64,6 +66,7 @@ impl CandleStickChart {
             show_y_axis: true,
             show_x_axis: true,
             fit_mode: ChartFitMode::Fixed,  // Default to fixed mode
+            max_width: 10, // Default max width for stretching
         }
     }
 
@@ -119,6 +122,11 @@ impl CandleStickChart {
 
     pub fn fit_mode(mut self, mode: ChartFitMode) -> Self {
         self.fit_mode = mode;
+        self
+    }
+
+    pub fn max_width(mut self, max_width: u16) -> Self {
+        self.max_width = std::cmp::max(1, max_width); // Ensure minimum width of 1
         self
     }
 }
@@ -272,13 +280,13 @@ impl StatefulWidget for CandleStickChart {
         }
 
         // Calculate candle width and spacing distribution, or merge candles for squashing
-        let (processed_candles, candle_width, extra_spaces, _) = match self.fit_mode {
+        let (processed_candles, candle_width, extra_spaces, left_offset) = match self.fit_mode {
             ChartFitMode::Fixed => {
                 let data_candles: Vec<Candle> = rendered_candles.iter()
                     .filter(|c| c.timestamp >= first_timestamp && c.timestamp <= last_timestamp)
                     .map(|&c| c.clone())
                     .collect();
-                (data_candles, 1u16, 0u16, 0usize)
+                (data_candles, 1u16, 0u16, 0u16)
             },
             ChartFitMode::Fit => {
                 let data_candles: Vec<Candle> = rendered_candles.iter()
@@ -287,7 +295,7 @@ impl StatefulWidget for CandleStickChart {
                     .collect();
                     
                 if data_candles.is_empty() {
-                    (data_candles, 1u16, 0u16, 0usize)
+                    (data_candles, 1u16, 0u16, 0u16)
                 } else if data_candles.len() > chart_width as usize {
                     // Squashing: merge candles
                     let merge_ratio = (data_candles.len() + chart_width as usize - 1) / chart_width as usize; // Ceiling division
@@ -307,20 +315,28 @@ impl StatefulWidget for CandleStickChart {
                         }
                     }
                     
-                    (merged_candles, 1u16, 0u16, 0usize)
+                    (merged_candles, 1u16, 0u16, 0u16)
                 } else {
-                    // Stretching: normal logic
-                    let base_width = std::cmp::max(1, chart_width / data_candles.len() as u16);
-                    let used_width = base_width * data_candles.len() as u16;
-                    let extra_spaces = chart_width.saturating_sub(used_width);
+                    // Stretching: calculate desired width and apply max_width limit
+                    let desired_width = chart_width / data_candles.len() as u16;
+                    let actual_width = std::cmp::min(desired_width, self.max_width);
+                    let used_width = actual_width * data_candles.len() as u16;
+                    let (extra_spaces, left_offset) = if actual_width == desired_width {
+                        // Normal stretching with extra spaces
+                        (chart_width.saturating_sub(used_width), 0u16)
+                    } else {
+                        // Width was capped, calculate left offset for blank space on the left
+                        let blank_space = chart_width.saturating_sub(used_width);
+                        (0u16, blank_space)
+                    };
                     
-                    (data_candles, base_width, extra_spaces, 0)
+                    (data_candles, actual_width, extra_spaces, left_offset)
                 }
             }
         };
         
         let mut candle_index = 0;
-        let mut current_x_offset = 0u16;
+        let mut current_x_offset = left_offset; // Start with left offset for blank space
         
         // Pre-calculate where extra spaces should go for even distribution
         let mut space_positions = vec![false; processed_candles.len()];
@@ -351,7 +367,7 @@ impl StatefulWidget for CandleStickChart {
                 // Use normal rendering
                 let (_, rendered) = candle.render(&y_axis);
                 for (y, char) in rendered.iter().enumerate() {
-                    let cell_x = candle_index as u16 + y_axis_width + area.x;
+                    let cell_x = left_offset + candle_index as u16 + y_axis_width + area.x;
                     let cell_y = y as u16 + area.y;
                     if cell_x < area.x + area.width && let Some(cell) = buf.cell_mut((cell_x, cell_y)) {
                         // Determine if this character is a wick or body
